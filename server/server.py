@@ -24,11 +24,13 @@ BUFFER_SIZE = 10_000
 AGENT_CONFIGS: Dict[str, str] = {
     "TodoListAgent": "You are an expert todo list writer. Your job is to extract actionable items from a request and format them as a numbered list.",
     "SummaryAgent": "You are an expert summary writer. Your job is to provide a brief, accurate, and neutral summary of the input text.",
+    "EmailCalendarAgent": "You are an expert at writing emails and setting calendars"
 } 
 
 AGENTS = {
    "SummaryAgent": MessageAgent(AGENT_CONFIGS["SummaryAgent"]),
-   "TodoListAgent": MessageAgent(AGENT_CONFIGS["TodoListAgent"])
+   "TodoListAgent": MessageAgent(AGENT_CONFIGS["TodoListAgent"]),
+   "EmailCalendarAgent": EmailCalendarAgent()
 }
 
 CHOICE_AGENT = ChoiceAgent(AGENT_CONFIGS)

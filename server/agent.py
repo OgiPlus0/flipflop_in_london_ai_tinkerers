@@ -1,3 +1,4 @@
+import os
 from typing import Dict, List, Optional
 from langchain_redis import RedisVectorStore
 from langchain_classic.schema import Document
@@ -8,6 +9,18 @@ from langchain.agents.structured_output import ToolStrategy
 from langgraph.checkpoint.redis import RedisSaver
 from pydantic import BaseModel, Field
 from redis import Redis
+from googleapiclient.discovery import build
+import os
+import base64
+from email.message import EmailMessage
+from typing import List, Optional
+
+# Google Auth Imports
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 REDIS_URL = "redis://localhost:6379"
 REDIS_CLIENT = Redis.from_url(REDIS_URL)
@@ -104,7 +117,6 @@ class TodoListAgent(Agent):
       config={"configurable": {"thread_id": 0}} 
     )["structured_response"]
 
-<<<<<<< HEAD
     return response.agent
   
 
@@ -137,8 +149,6 @@ def get_gmail_service():
             token.write(creds.to_json())
 
     return build("gmail", "v1", credentials=creds)
-=======
-    return response.helpful_response
 
 class RouterChoice(BaseModel):
     chosen_agent: str = Field(
@@ -192,4 +202,75 @@ class ChoiceAgent(Agent):
     )["structured_response"]
 
     return response.chosen_agent
->>>>>>> 0c357949aed364fc509912a0539bb78987fd6efe
+
+def send_email(
+    to: List[str],
+    subject: str,
+    body: str,
+    cc: Optional[List[str]] = None
+) -> str:
+    """
+    Use this tool to send an email via Gmail API.
+
+    Args:
+        to: A list of email strings (e.g. ["alice@example.com"]).
+            MUST be a list.
+        subject: The subject line of the email.
+        body: The plain text body of the email.
+        cc: (Optional) A list of email strings for CC.
+
+    Returns:
+        A string indicating success or failure.
+    """
+    if cc is None:
+        cc = []
+
+    try:
+        service = get_gmail_service()
+        message = EmailMessage()
+        message.set_content(body)
+        message["To"] = ", ".join(to)
+        message["From"] = "me"
+        message["Subject"] = subject
+
+        if cc:
+            message["Cc"] = ", ".join(cc)
+
+        encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+        create_message = {"raw": encoded_message}
+        sent_message = (
+            service.users()
+            .messages()
+            .send(userId="me", body=create_message)
+            .execute()
+        )
+
+        return f"Email sent successfully! Message Id: {sent_message['id']}"
+
+    except HttpError as error:
+        return f"An API error occurred: {error}"
+    except Exception as e:
+        return f"An unexpected error occurred: {e}"
+
+class EmailCalendarAgent(Agent):
+    def __init__(self):
+      checkpointer = RedisSaver(redis_client=REDIS_CLIENT)
+      checkpointer.setup()
+
+      self.service = get_gmail_service()
+      self.agent = create_agent(
+            model="gpt-4.1", 
+            tools=[get_prompt_context, send_email],
+            system_prompt="You are a helpful assistant. You can schedule calendar events and send emails. Break down user requests into appropriate tool calls and coordinate the results."
+                          "When a request involves multiple actions, use multiple tools in sequence.",
+            response_format=ToolStrategy(ResponseFormatMessage),
+            checkpointer=checkpointer,
+          )
+
+    def action(self, text: str) -> Optional[str]:
+      response = self.agent.invoke(
+        {"messages": [{"role": "user", "content": text}]},
+        config={"configurable": {"thread_id": 0}} 
+      )["structured_response"]
+
+      return response.helpful_response
