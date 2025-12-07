@@ -110,3 +110,34 @@ class ChoiceAgent(Agent):
     )["structured_response"]
 
     return response.agent
+  
+
+SCOPES = ["https://www.googleapis.com/auth/gmail.send"]
+
+def get_gmail_service():
+    """Handles OAuth2 authentication and returns the Gmail service."""
+    creds = None
+    # 1. Check if token already exists
+    if os.path.exists("token.json"):
+        creds = Credentials.from_authorized_user_file("token.json", SCOPES)
+    
+    # 2. If no valid token, let user log in
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+        else:
+            # Requires credentials.json from Google Cloud Console
+            if not os.path.exists("credentials.json"):
+                raise FileNotFoundError("Could not find 'credentials.json'. Please download it from Google Cloud Console.")
+            
+            flow = InstalledAppFlow.from_client_secrets_file(
+                "credentials.json", SCOPES
+            )
+            # This will open a browser window for you to login
+            creds = flow.run_local_server(port=0)
+            
+        # 3. Save the new token
+        with open("token.json", "w") as token:
+            token.write(creds.to_json())
+
+    return build("gmail", "v1", credentials=creds)
