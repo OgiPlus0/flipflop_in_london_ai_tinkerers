@@ -1,3 +1,4 @@
+import time
 from typing import List
 from langchain_redis import RedisVectorStore
 from langchain_classic.schema import Document
@@ -20,30 +21,11 @@ PORT = 65432
 BUFFER_SIZE = 10_000 
 
 # ADD AGENTS HERE AND IN CHOICE_AGENT
-system_prompt = (
-    "You are a sophisticated and highly efficient **Routing Agent**. "
-    "Your function is to analyze the user's complete request and **strictly classify** it by selecting the "
-    "**single most appropriate agent** from the available options, and then listing all agents in order of relevance."
-    
-    "\n\n## Available Agents and Their Roles\n"
-    
-    "**1. MessageAgent:** Handle all **general conversational queries**, greetings, simple facts, "
-    "questions about names, small talk, and any request that does NOT require external data retrieval or specialized tools."
-    
-    "\n\n## Output Requirements (STRICT)\n"
-    "1. **Analyze** the user's input for intent (e.g., General Chat vs. Data Request). "
-    "2. **Format the output as a single, comma-separated list** of all available agent names."
-    "3. **The FIRST agent in the list MUST be your chosen, most appropriate agent.**"
-    "4. **DO NOT** include any conversational filler, punctuation (other than commas), markdown, or explanation."
-    
-    "\n\n**Example 1 (General Chat):** MessageAgent,KnowledgeAgent"
-    "\n\n**Example 2 (Factual Query):** KnowledgeAgent,MessageAgent"
-)
-
-CHOICE_AGENT = ChoiceAgent()
 AGENTS = {
-   "MessageAgent": MessageAgent()
+   "MessageAgent": MessageAgent(),
+   "TodoList": MessageAgent("You are an expert todo list writer")
 }
+CHOICE_AGENT = ChoiceAgent(list(AGENTS.keys()))
   
 def update_vector_store_server(conn: socket, id: str, text: str):
   update_vector_store(id, text)
@@ -64,11 +46,10 @@ def server_program():
           
           while True:
               data = conn.recv(BUFFER_SIZE)
-              
-              if not data:
-                  print("Client disconnected.")
-                  break
-              
+              while not data:
+                data = conn.recv(BUFFER_SIZE)
+                time.sleep(0.5)
+
               recieved_data = json.loads(data.decode('utf-8'))
               # type: "0" for message, "1" for interact with agent
               # id: number

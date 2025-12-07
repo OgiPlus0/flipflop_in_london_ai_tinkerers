@@ -57,7 +57,28 @@ class ResponseFormatMessage:
     helpful_response: str
 
 class MessageAgent(Agent):
-  def __init__(self, system_prompt = "You are a helpful assistant"):
+  def __init__(self, system_prompt = "You are a unhelpful assistant"):
+    checkpointer = RedisSaver(redis_client=REDIS_CLIENT)
+    checkpointer.setup() 
+
+    self.agent = create_agent(
+      model="gpt-4.1", 
+      tools=[get_prompt_context],
+      system_prompt=system_prompt,
+      response_format=ToolStrategy(ResponseFormatMessage),
+      checkpointer=checkpointer,
+    )
+
+  def action(self, text: str) -> Optional[str]:
+    response = self.agent.invoke(
+      {"messages": [{"role": "user", "content": text}]},
+      config={"configurable": {"thread_id": 0}} 
+    )["structured_response"]
+
+    return response.helpful_response
+
+class TodoListAgent(Agent):
+  def __init__(self, system_prompt = "You are a unhelpful assistant"):
     checkpointer = RedisSaver(redis_client=REDIS_CLIENT)
     checkpointer.setup() 
 
@@ -82,9 +103,11 @@ class ResponseFormatChoice:
     agent: str
 
 class ChoiceAgent(Agent):
-  def __init__(self):
+  def __init__(self, agents: List[str]):
     checkpointer = RedisSaver(redis_client=REDIS_CLIENT)
     checkpointer.setup() 
+
+    agents_list = ','.join(agents)
 
     self.agent = create_agent(
       model="gpt-4.1", 
@@ -92,7 +115,7 @@ class ChoiceAgent(Agent):
     system_prompt = (
         "You are a highly efficient **Agent Router and Classifier**. "
         "Your sole task is to determine the most appropriate agent for a given user query. "
-        "Your current and only available choice is the **MessageAgent**. "
+        f"Your only available choices are {agents_list}. "
         "**Strictly adhere to the following output rules:** "
         "1. **Analyze** the user input. "
         "2. **Respond with ONLY the exact, single word name** of the chosen agent. "
