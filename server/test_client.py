@@ -14,8 +14,13 @@ def client_program():
       try:
             # Connect to the server
             print(f"Connected to server at {HOST}:{PORT}")
-
-            data = json.dumps(obj={"type": "1", "id": "10213123", "data": "Please summarize the following text: The Industrial Revolution, spanning the 18th and 19th centuries, marked a major turning point in history. It began in Great Britain and rapidly spread globally, leading to unprecedented economic growth. Key changes included the adoption of new manufacturing processes, the rise of factory systems, and the mechanization of textile production. This era also saw significant social upheaval, urbanization, and major advancements in transportation like the steam engine. I need a short summary of this."})
+            #data = json.dumps(obj={"type": "1", "id": "10213123", "data": "I need to keep track of a few things: I need to buy groceries, schedule a dentist appointment, and finish my LangChain project."})
+            data = json.dumps(obj={
+                "type": "1", 
+                "id": "10213123", 
+                "data": "I have several action items I need to execute this week: picking up groceries, confirming my dentist appointment time, and completing the LangChain module. **I need a system to capture and follow the status of these deliverables.**"
+            })
+            #data = json.dumps(obj={"type": "1", "id": "10213123", "data": "Please summarize the following text: The Industrial Revolution, spanning the 18th and 19th centuries, marked a major turning point in history. It began in Great Britain and rapidly spread globally, leading to unprecedented economic growth. Key changes included the adoption of new manufacturing processes, the rise of factory systems, and the mechanization of textile production. This era also saw significant social upheaval, urbanization, and major advancements in transportation like the steam engine. I need a short summary of this."})
             client_socket.sendall(data.encode())
 
             data = client_socket.recv(BUFFER_SIZE)

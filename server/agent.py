@@ -13,9 +13,16 @@ REDIS_URL = "redis://localhost:6379"
 REDIS_CLIENT = Redis.from_url(REDIS_URL)
 EMBEDDINGS = OpenAIEmbeddings()
 VECTOR_STORE = RedisVectorStore(embeddings=EMBEDDINGS)
+MIN_SIMILARITY_SCORE = 0.75 
 
 def get_context(s: str) -> List[Document]:
-    return VECTOR_STORE.similarity_search(s, k=100)
+    results_with_scores = VECTOR_STORE.similarity_search_with_score(s, k=10) # Ask for more initially
+
+    filtered_documents = [
+        doc for doc, score in results_with_scores if score >= MIN_SIMILARITY_SCORE
+    ]
+
+    return filtered_documents
 
 def get_prompt_context(query: str) -> str:
     """Gets information from a query that will be useful to include in a response"""
@@ -33,7 +40,7 @@ def get_prompt_context(query: str) -> str:
 
 def update_vector_store(id: str, text: str):
   VECTOR_STORE.delete(
-      filter={"doc_id": id} 
+      ids=[id]
   )
 
   document_chunk = Document(
@@ -46,7 +53,7 @@ def update_vector_store(id: str, text: str):
   )
 
   documents_to_add = [document_chunk]
-  VECTOR_STORE.add_documents(documents_to_add)
+  VECTOR_STORE.add_documents(documents_to_add, ids=[id])
 
 
 class Agent:
@@ -122,7 +129,7 @@ class ChoiceAgent(Agent):
         "1. **Analyze** the user input. "
         "2. **Respond with ONLY the exact, single word name** of the chosen agent. "
         "3. **DO NOT** include any other text, punctuation, explanation, or conversational filler."
-        "Chosen Agent: **MessageAgent**"
+        f"Chosen Agent: **{agents_list[0]}**"
       ),    
       response_format=ToolStrategy(RouterChoice),
       checkpointer=checkpointer,

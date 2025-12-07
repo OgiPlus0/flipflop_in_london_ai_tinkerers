@@ -27,8 +27,8 @@ AGENT_CONFIGS: Dict[str, str] = {
 } 
 
 AGENTS = {
-   "TodoListAgent": MessageAgent(AGENT_CONFIGS["TodoListAgent"]),
-   "SummaryAgent": MessageAgent(AGENT_CONFIGS["SummaryAgent"])
+   "SummaryAgent": MessageAgent(AGENT_CONFIGS["SummaryAgent"]),
+   "TodoListAgent": MessageAgent(AGENT_CONFIGS["TodoListAgent"])
 }
 
 CHOICE_AGENT = ChoiceAgent(list(AGENTS.keys()))
