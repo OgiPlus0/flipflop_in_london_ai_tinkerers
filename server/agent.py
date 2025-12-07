@@ -14,7 +14,7 @@ EMBEDDINGS = OpenAIEmbeddings()
 VECTOR_STORE = RedisVectorStore(embeddings=EMBEDDINGS)
 
 def get_context(s: str) -> List[Document]:
-    return VECTOR_STORE.similarity_search(s, k=3)
+    return VECTOR_STORE.similarity_search(s, k=100)
 
 def get_prompt_context(query: str) -> str:
     """Gets information from a query that will be useful to include in a response"""
@@ -57,14 +57,14 @@ class ResponseFormatMessage:
     helpful_response: str
 
 class MessageAgent(Agent):
-  def __init__(self):
+  def __init__(self, system_prompt = "You are a helpful assistant"):
     checkpointer = RedisSaver(redis_client=REDIS_CLIENT)
     checkpointer.setup() 
 
     self.agent = create_agent(
       model="gpt-4.1", 
       tools=[get_prompt_context],
-      system_prompt="You are a helpful assistant",
+      system_prompt=system_prompt,
       response_format=ToolStrategy(ResponseFormatMessage),
       checkpointer=checkpointer,
     )

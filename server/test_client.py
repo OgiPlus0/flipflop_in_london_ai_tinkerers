@@ -13,12 +13,14 @@ def client_program():
           client_socket.connect((HOST, PORT))
           print(f"Connected to server at {HOST}:{PORT}")
 
-          data = json.dumps(obj={"type": "1", "id": "10213123", "data": "This user's name is bob"})
+          data = json.dumps(obj={"type": "1", "id": "10213123", "data": "hello what am i supposed to test"})
           client_socket.sendall(data.encode())
 
           data = client_socket.recv(BUFFER_SIZE)
+          recieved_data = json.loads(data.decode('utf-8'))
+          print(recieved_data["data"])
 
-          data = json.dumps(obj={"type": "0", "id": "0", "data": "What is my name?"})
+          data = json.dumps(obj={"type": "0", "id": "StupidAgent", "data": "What is the weather?"})
           client_socket.sendall(data.encode())
 
           data = client_socket.recv(BUFFER_SIZE)
