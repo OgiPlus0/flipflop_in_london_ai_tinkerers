@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Dict, List, Optional
 from langchain_redis import RedisVectorStore
 from langchain_classic.schema import Document
 from langchain_openai import OpenAIEmbeddings
@@ -25,7 +25,7 @@ def get_context(s: str) -> List[Document]:
     return filtered_documents
 
 def get_prompt_context(query: str) -> str:
-    """Gets information from a query that will be useful to include in a response"""
+    """Gets information from a query that will be useful to include in a response, always call this function"""
 
     retrieved_documents = get_context(query)
     
@@ -112,27 +112,43 @@ class RouterChoice(BaseModel):
     )
 
 class ChoiceAgent(Agent):
-  def __init__(self, agents: List[str]):
+  def __init__(self, agents: Dict[str, str]):
     checkpointer = RedisSaver(redis_client=REDIS_CLIENT)
-    checkpointer.setup() 
+    checkpointer.setup()
 
-    agents_list = ', '.join(agents)
+    agent_names = list(agents.keys())
+    agents_list_str = ', '.join(agent_names)
+
+    description_lines = []
+    for name, description in agents.items():
+        description_lines.append(f"- **{name}**: {description}")
+    
+    agents_description_str = '\n'.join(description_lines)
 
     self.agent = create_agent(
-      model="gpt-4.1", 
-      tools=[get_prompt_context],
-    system_prompt = (
-        "You are a highly efficient **Agent Router and Classifier**. "
-        "Your sole task is to determine the most appropriate agent for a given user query. "
-        f"Your only available choices are {agents_list}. "
-        "**Strictly adhere to the following output rules:** "
-        "1. **Analyze** the user input. "
-        "2. **Respond with ONLY the exact, single word name** of the chosen agent. "
-        "3. **DO NOT** include any other text, punctuation, explanation, or conversational filler."
-        f"Chosen Agent: **{agents_list[0]}**"
-      ),    
-      response_format=ToolStrategy(RouterChoice),
-      checkpointer=checkpointer,
+        model="gpt-4.1", 
+        tools=[get_prompt_context],
+        system_prompt=(
+            "You are a highly efficient **Agent Router and Classifier**. "
+            "Your sole task is to determine the most appropriate agent for a given user query. "
+
+            "--"
+            "**CRITICAL RULE: Before making ANY routing decision, you MUST call the `get_prompt_context` tool to retrieve necessary contextual data.** "
+            "The retrieved context is essential for accurate routing. "
+            "---"
+            
+            f"The available agents and their descriptions are:\n{agents_description_str}\n"
+            "---"
+
+            f"Your only available choices are: **{agents_list_str}**. "
+            "**Strictly adhere to the following output rules:** "
+            "1. **Analyze** the user input. "
+            "2. **Respond with ONLY the exact, single word name** of the chosen agent. "
+            "3. **DO NOT** include any other text, punctuation, explanation, or conversational filler."
+            f"Chosen Agent: **{agent_names[1]}**" 
+        ),    
+        response_format=ToolStrategy(RouterChoice),
+        checkpointer=checkpointer,
     )
 
   def action(self, text: str) -> Optional[str]:

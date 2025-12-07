@@ -31,7 +31,7 @@ AGENTS = {
    "TodoListAgent": MessageAgent(AGENT_CONFIGS["TodoListAgent"])
 }
 
-CHOICE_AGENT = ChoiceAgent(list(AGENTS.keys()))
+CHOICE_AGENT = ChoiceAgent(AGENT_CONFIGS)
   
 def update_vector_store_server(conn: socket, id: str, text: str):
   update_vector_store(id, text)
