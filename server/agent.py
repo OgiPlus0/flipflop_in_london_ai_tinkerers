@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
 from langgraph.checkpoint.redis import RedisSaver
+from pydantic import BaseModel, Field
 from redis import Redis
 
 REDIS_URL = "redis://localhost:6379"
@@ -57,7 +58,7 @@ class ResponseFormatMessage:
     helpful_response: str
 
 class MessageAgent(Agent):
-  def __init__(self, system_prompt = "You are a unhelpful assistant"):
+  def __init__(self, system_prompt = "You are a helpful assistant"):
     checkpointer = RedisSaver(redis_client=REDIS_CLIENT)
     checkpointer.setup() 
 
@@ -98,16 +99,17 @@ class TodoListAgent(Agent):
 
     return response.helpful_response
 
-@dataclass
-class ResponseFormatChoice:
-    agent: str
+class RouterChoice(BaseModel):
+    chosen_agent: str = Field(
+        description="The exact single word name of the most appropriate agent for the query."
+    )
 
 class ChoiceAgent(Agent):
   def __init__(self, agents: List[str]):
     checkpointer = RedisSaver(redis_client=REDIS_CLIENT)
     checkpointer.setup() 
 
-    agents_list = ','.join(agents)
+    agents_list = ', '.join(agents)
 
     self.agent = create_agent(
       model="gpt-4.1", 
@@ -122,7 +124,7 @@ class ChoiceAgent(Agent):
         "3. **DO NOT** include any other text, punctuation, explanation, or conversational filler."
         "Chosen Agent: **MessageAgent**"
       ),    
-      response_format=ToolStrategy(ResponseFormatChoice),
+      response_format=ToolStrategy(RouterChoice),
       checkpointer=checkpointer,
     )
 
@@ -132,4 +134,4 @@ class ChoiceAgent(Agent):
       config={"configurable": {"thread_id": 0}} 
     )["structured_response"]
 
-    return response.agent
+    return response.chosen_agent

@@ -1,5 +1,5 @@
 import time
-from typing import List
+from typing import Dict, List
 from langchain_redis import RedisVectorStore
 from langchain_classic.schema import Document
 from langchain_openai import OpenAIEmbeddings
@@ -21,51 +21,54 @@ PORT = 65432
 BUFFER_SIZE = 10_000 
 
 # ADD AGENTS HERE AND IN CHOICE_AGENT
+AGENT_CONFIGS: Dict[str, str] = {
+    "TodoListAgent": "You are an expert todo list writer. Your job is to extract actionable items from a request and format them as a numbered list.",
+    "SummaryAgent": "You are an expert summary writer. Your job is to provide a brief, accurate, and neutral summary of the input text.",
+} 
+
 AGENTS = {
-   "MessageAgent": MessageAgent(),
-   "TodoList": MessageAgent("You are an expert todo list writer")
+   "TodoListAgent": MessageAgent(AGENT_CONFIGS["TodoListAgent"]),
+   "SummaryAgent": MessageAgent(AGENT_CONFIGS["SummaryAgent"])
 }
+
 CHOICE_AGENT = ChoiceAgent(list(AGENTS.keys()))
   
 def update_vector_store_server(conn: socket, id: str, text: str):
   update_vector_store(id, text)
 
 def server_program():
-  with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-      server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-      server_socket.bind((HOST, PORT))
-      print(f"Server started, listening on {HOST}:{PORT}")
-      
-      server_socket.listen(1)
-      
-      conn, addr = server_socket.accept()
-      
-      with conn:
-          print(f"Connection established with client at {addr}")
-          
-          while True:
-              data = conn.recv(BUFFER_SIZE)
-              while not data:
-                data = conn.recv(BUFFER_SIZE)
-                time.sleep(0.5)
-
-              recieved_data = json.loads(data.decode('utf-8'))
-              # type: "0" for message, "1" for interact with agent
-              # id: number
-              # data: 
-
-              if recieved_data["type"] == "0":
-                #text = CHOICE_AGENT.action(recieved_data["data"])
-                agent = recieved_data["id"]
-                if agent in AGENTS.keys():
-                  conn.send(json.dumps({"type": "0", "id": "123", "data": AGENTS[recieved_data["id"]].action(recieved_data["data"])}).encode())
-                else:
-                   conn.send(json.dumps({"type": "0", "id": "123", "data": "not a valid agent"}).encode())
-              else:
-                update_vector_store_server(conn, recieved_data["id"], recieved_data["data"])
-                conn.send(json.dumps({"type": "1", "id": "2112", "data": CHOICE_AGENT.action("Give me an appropriate agent for the context")}).encode())
-
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_socket.bind((HOST, PORT))
+        print(f"Server started, listening on {HOST}:{PORT}")
+        server_socket.listen(1)
+        
+        while True: 
+            conn, addr = server_socket.accept()
+            print(f"Connection established with client at {addr}")
+            
+            with conn: 
+                while True: 
+                    data = conn.recv(BUFFER_SIZE)
+                    
+                    if not data:
+                        print(f"Client at {addr} disconnected.")
+                        break 
+                    
+                    try:
+                        recieved_data = json.loads(data.decode('utf-8'))
+                        
+                        if recieved_data["type"] == "0":
+                            agent = recieved_data["id"]
+                            response_data = AGENTS[agent].action(recieved_data["data"]) if agent in AGENTS.keys() else "not a valid agent"
+                            conn.send(json.dumps({"type": "0", "id": "123", "data": response_data}).encode())
+                        else:
+                            update_vector_store_server(conn, recieved_data["id"], recieved_data["data"])
+                            response_data = CHOICE_AGENT.action("Give me an appropriate agent for the context")
+                            conn.send(json.dumps({"type": "1", "id": "2112", "data": response_data}).encode())
+                            
+                    except json.JSONDecodeError as e:
+                        print(f"JSON Error: {e}")
 
 def main():
   try:
