@@ -1,20 +1,7 @@
-import time
-from typing import Dict, List
-from langchain_redis import RedisVectorStore
-from langchain_classic.schema import Document
-from langchain_openai import OpenAIEmbeddings
-from dataclasses import dataclass
-from langchain.agents import create_agent
-from langchain.agents.structured_output import ToolStrategy
-from langgraph.checkpoint.redis import RedisSaver
-from redis import Redis
-
 from agent import *
 
 import socket
 import json
-
-from redis import Redis
 
 HOST = "127.0.0.1"  
 PORT = 65432       
@@ -23,14 +10,12 @@ BUFFER_SIZE = 10_000
 # ADD AGENTS HERE AND IN CHOICE_AGENT
 AGENT_CONFIGS: Dict[str, str] = {
     "TodoListAgent": "You are an expert todo list writer. Your job is to extract actionable items from a request and format them as a numbered list.",
-    "SummaryAgent": "You are an expert summary writer. Your job is to provide a brief, accurate, and neutral summary of the input text.",
-    "EmailCalendarAgent": "You are an expert at writing emails and setting calendars"
+    "SummaryAgent": "You are an expert summary writer. Your job is to provide a brief, accurate, and neutral summary of the input text."
 } 
 
 AGENTS = {
    "SummaryAgent": MessageAgent(AGENT_CONFIGS["SummaryAgent"]),
    "TodoListAgent": MessageAgent(AGENT_CONFIGS["TodoListAgent"]),
-   "EmailCalendarAgent": EmailCalendarAgent()
 }
 
 CHOICE_AGENT = ChoiceAgent(AGENT_CONFIGS)
@@ -66,7 +51,7 @@ def server_program():
                             conn.send(json.dumps({"type": "0", "id": "123", "data": response_data}).encode())
                         else:
                             update_vector_store_server(conn, recieved_data["id"], recieved_data["data"])
-                            response_data = CHOICE_AGENT.action("Give me an appropriate agent for the context")
+                            response_data = CHOICE_AGENT.action("Give me an appropriate agent for the context: " + recieved_data["data"])
                             conn.send(json.dumps({"type": "1", "id": "2112", "data": response_data}).encode())
                             
                     except json.JSONDecodeError as e:
